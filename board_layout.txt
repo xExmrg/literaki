@@ -1,0 +1,15 @@
+R W 3x W W G W R W G W W 3x W R
+W W W W G W R W R W G W W W W 
+3x W W G W 2x W Y W 2x W G W W 3x
+W W G W 2x W Y W Y W 2x W G W W 
+W G W 2x W Y W W W Y W 2x W G W 
+G W 2x W Y W W B W W Y W 2x W G
+W R W Y W W B W B W W Y W R W
+R W Y W W B W R W B W W Y W R
+W R W Y W W B W B W W Y W R W
+G W 2x W Y W W B W W Y W 2x W G
+W G W 2x W Y W W W Y W 2x W G W
+W W G W 2x W Y W Y W 2x W G W W
+3x W W G W 2x W Y W 2x W G W W 3x
+W W W W G W R W R W G W W W W 
+R W 3x W W G W R W G W W 3x W R
