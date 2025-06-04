@@ -172,6 +172,65 @@ board_properties = None
 # Configuration for EasyOCR GPU usage (can be set in helper.py)
 OCR_GPU = True  # Set to False for CPU-only
 
+# Directory for OCR debugging images
+OCR_DEBUG_DIR = "ocr_debug"
+
+# Character mapping used by OCR functions
+CHAR_MAPPING = {
+    'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
+    'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
+    'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
+    'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
+    'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
+    'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
+    # Common OCR mistakes
+    '0': 'O', '1': 'I', '6': 'G', '8': 'B'
+}
+
+
+def save_debug_image(filename: str, image: np.ndarray) -> str:
+    """Save an image to the OCR debug directory and return its path."""
+    if not os.path.exists(OCR_DEBUG_DIR):
+        os.makedirs(OCR_DEBUG_DIR)
+    path = os.path.join(OCR_DEBUG_DIR, filename)
+    cv2.imwrite(path, image)
+    return path
+
+
+def preprocess_image(image_bgr: np.ndarray) -> np.ndarray:
+    """Apply common preprocessing steps for OCR."""
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
+    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+    return cv2.filter2D(blurred, -1, kernel)
+
+
+def capture_game_images():
+    """Capture the board and rack areas from a screenshot."""
+    screenshot_start = time.time()
+    full_pil = pyautogui.screenshot()
+    screenshot_end = time.time()
+    if full_pil is None:
+        return None, None, screenshot_start, screenshot_end
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    board_pil = full_pil.crop(BOARD_CROP_COORDS)
+    board_filename = os.path.join(SCREENSHOT_DIR, f"board_cropped_{timestamp}.png")
+    board_pil.save(board_filename)
+    logging.info(f"Saved cropped board image: {board_filename}")
+
+    rack_pil = full_pil.crop(RACK_CROP_COORDS)
+    rack_filename = os.path.join(SCREENSHOT_DIR, f"rack_cropped_{timestamp}.png")
+    rack_pil.save(rack_filename)
+    logging.info(f"Saved cropped rack image: {rack_filename}")
+
+    board_bgr = cv2.cvtColor(np.array(board_pil), cv2.COLOR_RGB2BGR)
+    rack_bgr = cv2.cvtColor(np.array(rack_pil), cv2.COLOR_RGB2BGR)
+    return board_bgr, rack_bgr, screenshot_start, screenshot_end
+
+
 def validate_dependencies():
     """Validate that all required dependencies are available."""
     missing_deps = []
@@ -486,30 +545,10 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
         
         # Save original board image for debugging
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        debug_dir = "ocr_debug"
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
+        save_debug_image(f"board_original_{timestamp}.png", board_img)
         
-        cv2.imwrite(f"{debug_dir}/board_original_{timestamp}.png", board_img)
-        
-        # Image preprocessing for better OCR
-        # Convert to grayscale
-        gray_board = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
-        
-        # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced_board = clahe.apply(gray_board)
-        
-        # Apply Gaussian blur to reduce noise
-        blurred_board = cv2.GaussianBlur(enhanced_board, (3, 3), 0)
-        
-        # Apply sharpening kernel
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        sharpened_board = cv2.filter2D(blurred_board, -1, kernel)
-        
-        # Save preprocessed image for debugging
-        cv2.imwrite(f"{debug_dir}/board_preprocessed_{timestamp}.png", sharpened_board)
-        
+        sharpened_board = preprocess_image(board_img)
+        save_debug_image(f"board_preprocessed_{timestamp}.png", sharpened_board)
         # Run OCR on both original and preprocessed images
         logging.info("OCR Debug: Running EasyOCR on original image...")
         board_results_orig = ocr_reader.readtext(board_img, batch_size=16, workers=0 if OCR_GPU else 4)
@@ -534,17 +573,6 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
         accepted_letters = 0
         rejected_letters = 0
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
-        
         for (bbox, text, prob) in board_results:
             txt = text.strip().upper()
             
@@ -557,8 +585,8 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
                 continue
                 
             # Handle Polish character variations and common OCR mistakes
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     y_coords = [pt[1] for pt in bbox]
@@ -600,44 +628,24 @@ def ocr_rack(rack_img_bgr: np.ndarray) -> list:
             return []
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        debug_dir = "ocr_debug"
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
+        save_debug_image(f"rack_original_{timestamp}.png", rack_img_bgr)
 
-        cv2.imwrite(f"{debug_dir}/rack_original_{timestamp}.png", rack_img_bgr)
+        sharpened_rack = preprocess_image(rack_img_bgr)
+        save_debug_image(f"rack_preprocessed_{timestamp}.png", sharpened_rack)
 
-        # Preprocess rack image
-        gray_rack = cv2.cvtColor(rack_img_bgr, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced_rack = clahe.apply(gray_rack)
-        blurred_rack = cv2.GaussianBlur(enhanced_rack, (3, 3), 0)
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        sharpened_rack = cv2.filter2D(blurred_rack, -1, kernel)
-        cv2.imwrite(f"{debug_dir}/rack_preprocessed_{timestamp}.png", sharpened_rack)
-        
         rack_results = ocr_reader.readtext(sharpened_rack, batch_size=8, workers=0 if OCR_GPU else 2)
         
         logging.info(f"OCR Debug: Rack detected {len(rack_results)} text regions:")
         for i, (bbox, text, prob) in enumerate(rack_results):
             logging.info(f"  [{i}] Text: '{text}' | Confidence: {prob:.3f}")
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
 
         rack_candidates = []
         for (bbox, text, prob) in rack_results:
             if prob < OCR_CONFIDENCE_THRESHOLD: continue
             txt = text.strip().upper()
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     cx = sum(x_coords) / 4.0
@@ -753,30 +761,11 @@ def main_loop():
                 return
 
         try:
-            screenshot_start = time.time()
-            full_screenshot_pil = pyautogui.screenshot()
-            screenshot_end = time.time()
-            if full_screenshot_pil is None:
+            board_cropped_bgr, rack_cropped_bgr, screenshot_start, screenshot_end = capture_game_images()
+            if board_cropped_bgr is None:
                 logging.error("Failed to capture screenshot (pyautogui.screenshot() returned None).")
                 time.sleep(REFRESH_INTERVAL)
                 continue
-            full_bgr_image = cv2.cvtColor(np.array(full_screenshot_pil), cv2.COLOR_RGB2BGR)
-
-            # --- New cropping and saving logic for fixed regions ---
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
-            # Crop and save board image
-            board_cropped_pil = full_screenshot_pil.crop(BOARD_CROP_COORDS)
-            board_cropped_filename = os.path.join(SCREENSHOT_DIR, f"board_cropped_{timestamp}.png")
-            board_cropped_pil.save(board_cropped_filename)
-            logging.info(f"Saved cropped board image: {board_cropped_filename}")
-
-            # Crop and save rack image
-            rack_cropped_pil = full_screenshot_pil.crop(RACK_CROP_COORDS)
-            rack_cropped_filename = os.path.join(SCREENSHOT_DIR, f"rack_cropped_{timestamp}.png")
-            rack_cropped_pil.save(rack_cropped_filename)
-            logging.info(f"Saved cropped rack image: {rack_cropped_filename}")
-            # --- End new cropping and saving logic ---
 
         except Exception as e:
             logging.error(f"Error capturing screenshot: {e}", exc_info=True)
@@ -787,10 +776,6 @@ def main_loop():
         new_state = current_game_state
 
         detect_start = time.time()
-        # Use the cropped board image for board detection and OCR
-        # Convert PIL Image to OpenCV format (BGR) for processing
-        board_cropped_bgr = cv2.cvtColor(np.array(board_cropped_pil), cv2.COLOR_RGB2BGR)
-        rack_cropped_bgr = cv2.cvtColor(np.array(rack_cropped_pil), cv2.COLOR_RGB2BGR)
 
         if detect_waiting_screen(board_cropped_bgr): # Use cropped board for waiting screen detection
             if current_game_state != GameStateEnum.WAITING:
