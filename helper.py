@@ -66,6 +66,7 @@ from dictionary_handler import load_dictionary, is_valid_word
 from ocr_utils import CHAR_MAPPING, preprocess_image
 
 import itertools
+from dataclasses import dataclass
 
 # ------------------------------------------------------------------------------
 # CONFIGURATION
@@ -656,17 +657,28 @@ def update_gui_from_detection(board_letters, rack_letters):
 # ------------------------------------------------------------------------------
 # STEP E: BEST MOVE SEARCH (Brute Force) (Assumed largely correct from original)
 # ------------------------------------------------------------------------------
+
+@dataclass
+class MoveConfig:
+    """Configuration for describing a potential move on the board."""
+    word: str
+    row: int
+    col: int
+    horizontal: bool
 def find_anchor_positions(board_letters):
     # ... (find_anchor_positions logic from original) ...
     return [] # Placeholder
 
-def can_place_word_at(board_letters, rack_letters, word, row, col, horizontal):
+def can_place_word_at(board_letters, rack_letters, move: MoveConfig):
+    """Determine if ``move`` is valid on the given ``board_letters``."""
     # ... (can_place_word_at logic from original) ...
-    return None # Placeholder
+    # ``move`` contains ``word``, ``row``, ``col`` and ``horizontal``.
+    return None  # Placeholder
 
-def score_move(used, word, row, col, horizontal, board_letters):
+def score_move(used, move: MoveConfig, board_letters):
+    """Compute the score for ``move`` using ``used`` positions."""
     # ... (score_move logic from original) ...
-    return 0 # Placeholder
+    return 0  # Placeholder
 
 def best_move_search(board_letters, rack_letters):
     global board_properties # Ensure access to the game board layout for scoring
