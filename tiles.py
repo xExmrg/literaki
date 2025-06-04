@@ -77,6 +77,11 @@ class PlayerRack:
     __slots__ = ('rack_size', 'tile_bag', 'tiles')
 
     def __init__(self, tile_bag, rack_size=7):
+        if rack_size <= 0:
+            raise ValueError("rack_size must be positive")
+        if tile_bag is not None and not isinstance(tile_bag, list):
+            raise TypeError("tile_bag must be a list or None")
+
         self.rack_size = rack_size
         self.tile_bag = tile_bag  # Reference to the game's tile bag
         self.tiles = []
@@ -126,7 +131,9 @@ class PlayerRack:
                 # This part might need more robust handling for blank tiles specifically
                 # if their 'letter' field is changed upon placement.
                 # For now, we assume the tile object passed is from the rack.
-                pass # Tile not found by object, would have been caught by char search
+                pass  # Tile not found by object, would have been caught by char search
+        else:
+            raise TypeError("argument must be a letter (str) or tile dictionary")
 
         return tile_to_remove # Tile not found or already removed
 
@@ -134,6 +141,8 @@ class PlayerRack:
         """Adds a tile to the rack (e.g., if exchanging or move undone)."""
         if tile is None:
             return
+        if not isinstance(tile, dict) or 'letter' not in tile:
+            raise TypeError("tile must be a dictionary with a 'letter' key")
         if len(self.tiles) < self.rack_size:
             self.tiles.append(tile)
 
