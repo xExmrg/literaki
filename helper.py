@@ -99,6 +99,18 @@ INITIAL_WAIT_TIME = 5.0
 # 6) OCR confidence threshold
 OCR_CONFIDENCE_THRESHOLD = 0.3 # Lowered from 0.5 to catch more potential letters
 
+# Mapping for OCR normalization. Defined once to avoid recreating on each call.
+CHAR_MAPPING = {
+    'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
+    'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
+    'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
+    'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
+    'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
+    'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
+    # Common OCR mistakes
+    '0': 'O', '1': 'I', '6': 'G', '8': 'B'
+}
+
 # 7) Debug logging configuration
 logging.basicConfig(
     level=logging.INFO, # Changed to INFO for less verbose default logging, DEBUG for more
@@ -364,10 +376,10 @@ def find_board_in_screenshot(full_bgr):
             return None
         confidence_score += 15 # Base for finding enough markers
 
-        xs = [pt[0] for pt in centroids]
-        ys = [pt[1] for pt in centroids]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
+        centroids_np = np.array(centroids, dtype=np.int32)
+        xs, ys = centroids_np[:, 0], centroids_np[:, 1]
+        min_x, max_x = xs.min(), xs.max()
+        min_y, max_y = ys.min(), ys.max()
 
         board_candidate_width = max_x - min_x
         board_candidate_height = max_y - min_y
@@ -534,17 +546,6 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
         accepted_letters = 0
         rejected_letters = 0
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
-        
         for (bbox, text, prob) in board_results:
             txt = text.strip().upper()
             
@@ -557,8 +558,8 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
                 continue
                 
             # Handle Polish character variations and common OCR mistakes
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     y_coords = [pt[1] for pt in bbox]
@@ -621,23 +622,14 @@ def ocr_rack(rack_img_bgr: np.ndarray) -> list:
         for i, (bbox, text, prob) in enumerate(rack_results):
             logging.info(f"  [{i}] Text: '{text}' | Confidence: {prob:.3f}")
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
 
         rack_candidates = []
         for (bbox, text, prob) in rack_results:
-            if prob < OCR_CONFIDENCE_THRESHOLD: continue
+            if prob < OCR_CONFIDENCE_THRESHOLD:
+                continue
             txt = text.strip().upper()
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     cx = sum(x_coords) / 4.0
@@ -665,9 +657,8 @@ def update_gui_from_detection(board_letters, rack_letters):
     try:
         # 1) Update board tiles in GUI's internal representation
         new_placed_letters = [[None for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
-        for r in range(BOARD_SIZE):
-            for c in range(BOARD_SIZE):
-                letter = board_letters[r][c]
+        for r, row in enumerate(board_letters):
+            for c, letter in enumerate(row):
                 if letter: # If a letter is detected for this square
                     if letter in TILE_DEFINITIONS:
                         tile_info = TILE_DEFINITIONS[letter]
@@ -682,12 +673,15 @@ def update_gui_from_detection(board_letters, rack_letters):
         gui.placed_letters_on_board = new_placed_letters
 
         # 2) Update rack tiles in GUI's internal representation
-        new_rack_tiles = []
-        for ch in rack_letters:
-            if ch in TILE_DEFINITIONS:
-                tile_info = TILE_DEFINITIONS[ch]
-                new_rack_tiles.append({'letter': ch, 'points': tile_info['points'], 'color': tile_info['color']})
-            # else: skip unrecognized chars for rack
+        new_rack_tiles = [
+            {
+                'letter': ch,
+                'points': TILE_DEFINITIONS[ch]['points'],
+                'color': TILE_DEFINITIONS[ch]['color'],
+            }
+            for ch in rack_letters
+            if ch in TILE_DEFINITIONS
+        ]
         gui.player_rack.tiles = new_rack_tiles # Assuming player_rack has a 'tiles' attribute
 
         # 3) GUI should handle its own drawing when its data changes, or explicitly call draw
