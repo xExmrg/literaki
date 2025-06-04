@@ -29,8 +29,6 @@
 import os
 import sys
 import time
-import threading # Not actively used in provided snippet, but kept if original had threading
-import traceback
 import atexit
 import logging
 from datetime import datetime
@@ -42,13 +40,12 @@ import numpy as np
 import pyautogui
 import easyocr
 import pygame
-from PIL import Image # Added for image cropping
 from pygame.locals import QUIT, KEYDOWN, K_ESCAPE
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import WebDriverException, NoSuchDriverException
+
 
 # Import webdriver-manager for automatic ChromeDriver management
 try:
@@ -62,8 +59,6 @@ from board import create_literaki_board, BOARD_SIZE, MID_INDEX
 from tiles import TILE_DEFINITIONS
 from game_gui import LiterakiGUI # Assuming this class handles its own drawing updates
 from dictionary_handler import load_dictionary, is_valid_word
-
-import itertools
 
 # ------------------------------------------------------------------------------
 # CONFIGURATION
@@ -322,111 +317,6 @@ def launch_browser_and_navigate():
 # ------------------------------------------------------------------------------
 # STEP B: FULL-SCREEN CAPTURE & RED-CORNER DETECTION
 # ------------------------------------------------------------------------------
-
-def find_board_in_screenshot(full_bgr):
-    """
-    Locate the 15×15 board by detecting red/orange bonus squares (typically 3W corners).
-    Returns (board_left, board_top, board_width, board_height, tile_w, tile_h, confidence_score)
-    or None if no valid board corners were found.
-    """
-    try:
-        hsv = cv2.cvtColor(full_bgr, cv2.COLOR_BGR2HSV)
-        confidence_score = 0
-
-        # Kurnik's 3W squares are reddish/orange.
-        lower_red1 = np.array([0, 100, 100]) # Adjusted HSV ranges slightly for broader red/orange
-        upper_red1 = np.array([15, 255, 255]) # Hue up to 15 for orange-red
-        lower_red2 = np.array([165, 100, 100]) # Hue from 165 for red
-        upper_red2 = np.array([180, 255, 255])
-
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        mask = cv2.bitwise_or(mask1, mask2)
-
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.dilate(mask, kernel, iterations=1) # Optional: helps connect broken contours
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        centroids = []
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area < MIN_RED_CONTOUR_AREA: # Filter small noise
-                continue
-            M = cv2.moments(cnt)
-            if M["m00"] == 0: continue
-            cx = int(M["m10"] / M["m00"])
-            cy = int(M["m01"] / M["m00"])
-            centroids.append((cx, cy))
-
-        if len(centroids) < 4: # Need at least 4 markers for corners
-            logging.debug(f"Not enough red markers found: {len(centroids)} (need at least 4 for board outline)")
-            return None
-        confidence_score += 15 # Base for finding enough markers
-
-        xs = [pt[0] for pt in centroids]
-        ys = [pt[1] for pt in centroids]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-
-        board_candidate_width = max_x - min_x
-        board_candidate_height = max_y - min_y
-
-        if board_candidate_width < 150 or board_candidate_height < 150: # Heuristic: board should be reasonably large
-            logging.debug(f"Detected red markers span too small an area: W={board_candidate_width}, H={board_candidate_height}")
-            return None
-        confidence_score += 10 # For significant span
-
-        aspect_ratio = board_candidate_width / board_candidate_height if board_candidate_height > 0 else 0
-        if not (0.8 < aspect_ratio < 1.2):
-            logging.debug(f"Red markers don't form a square (aspect ratio: {aspect_ratio:.2f})")
-            return None
-        confidence_score += 25 # For good aspect ratio
-
-        tile_w = board_candidate_width / 14.0
-        tile_h = board_candidate_height / 14.0
-
-        if not (10 < tile_w < 100 and 10 < tile_h < 100): # Tile size validation
-            logging.debug(f"Invalid tile size (w:{tile_w:.1f}, h:{tile_h:.1f})")
-            return None
-        confidence_score += 20 # For valid tile sizes
-
-        # Board rectangle: from min/max of markers, expand by half a tile for full board coverage
-        board_left = int(min_x - tile_w / 2)
-        board_top = int(min_y - tile_h / 2)
-        # Recalculate board width and height based on 15 tiles
-        board_width = int(tile_w * 15)
-        board_height = int(tile_h * 15)
-
-
-        # Clamp to screenshot bounds
-        H_screen, W_screen = full_bgr.shape[:2]
-        board_left = max(0, board_left)
-        board_top = max(0, board_top)
-        board_width = min(board_width, W_screen - board_left)
-        board_height = min(board_height, H_screen - board_top)
-
-        # Active game state indicator check (original logic, can be tuned)
-        # This checks if the board area is too uniformly bright (e.g. not a game board)
-        board_img_check = full_bgr[board_top:board_top+board_height, board_left:board_left+board_width]
-        if board_img_check.size == 0: return None # Avoid error if rect is invalid
-        gray_board_check = cv2.cvtColor(board_img_check, cv2.COLOR_BGR2GRAY)
-        _, thresh_board_check = cv2.threshold(gray_board_check, 220, 255, cv2.THRESH_BINARY) # Higher threshold for "very bright"
-        active_pixels = cv2.countNonZero(thresh_board_check)
-        if active_pixels > (board_width * board_height * 0.5):  # Increased threshold: if >50% is very bright
-            logging.debug("Board area too bright, might not be active game state or wrong detection.")
-            #return None # Commented out: this check might be too aggressive for empty boards
-            confidence_score -= 10 # Penalize if too bright, but don't outright reject yet
-        else:
-            confidence_score += 30
-
-
-        logging.debug(f"Board detection proposal: Rect=({board_left},{board_top},{board_width},{board_height}), TileW/H=({tile_w:.1f},{tile_h:.1f}), Confidence={confidence_score}/100")
-        return (board_left, board_top, board_width, board_height, tile_w, tile_h, confidence_score)
-
-    except Exception as e:
-        logging.error(f"Error in find_board_in_screenshot: {e}", exc_info=True)
-        return None
 
 
 def detect_waiting_screen(image_bgr: np.ndarray) -> bool:
@@ -701,17 +591,6 @@ def update_gui_from_detection(board_letters, rack_letters):
 # ------------------------------------------------------------------------------
 # STEP E: BEST MOVE SEARCH (Brute Force) (Assumed largely correct from original)
 # ------------------------------------------------------------------------------
-def find_anchor_positions(board_letters):
-    # ... (find_anchor_positions logic from original) ...
-    return [] # Placeholder
-
-def can_place_word_at(board_letters, rack_letters, word, row, col, horizontal):
-    # ... (can_place_word_at logic from original) ...
-    return None # Placeholder
-
-def score_move(used, word, row, col, horizontal, board_letters):
-    # ... (score_move logic from original) ...
-    return 0 # Placeholder
 
 def best_move_search(board_letters, rack_letters):
     global board_properties # Ensure access to the game board layout for scoring
