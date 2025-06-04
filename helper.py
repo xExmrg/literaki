@@ -62,7 +62,7 @@ except ImportError:
 from board import create_literaki_board, BOARD_SIZE, MID_INDEX
 from tiles import TILE_DEFINITIONS
 from game_gui import LiterakiGUI  # Assuming this class handles its own drawing updates
-from dictionary_handler import load_dictionary, is_valid_word
+from dictionary_handler import load_dictionary, is_valid_word, DICTIONARY_WORDS
 from ocr_utils import CHAR_MAPPING, preprocess_image
 
 import itertools
@@ -216,8 +216,7 @@ def initialize_components():
 
         try:
             load_dictionary("dictionary.txt")
-            dict_words_global = sys.modules['dictionary_handler'].DICTIONARY_WORDS
-            logging.info(f"  -> Dictionary loaded: {len(dict_words_global)} words.")
+            logging.info(f"  -> Dictionary loaded: {len(DICTIONARY_WORDS)} words.")
         except Exception as e:
             logging.error(f"  -> Dictionary loading failed: {e}")
             return False
