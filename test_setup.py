@@ -7,6 +7,7 @@ Run this before using the main helper.py to ensure everything is working correct
 import sys
 import os
 import traceback
+import config
 from typing import List, Tuple
 
 def test_imports() -> Tuple[bool, List[str]]:
@@ -92,11 +93,12 @@ def test_project_files() -> bool:
             print(f"  [FAIL] {file} missing")
             all_exist = False
     
-    # Check for dictionary.txt (will be created if missing)
-    if os.path.exists("dictionary.txt"):
-        print("  [OK] dictionary.txt found")
+    # Check for dictionary file (will be created if missing)
+    from config import DICTIONARY_PATH
+    if os.path.exists(DICTIONARY_PATH):
+        print(f"  [OK] {DICTIONARY_PATH} found")
     else:
-        print("  [WARN] dictionary.txt missing (will be created automatically)")
+        print(f"  [WARN] {DICTIONARY_PATH} missing (will be created automatically)")
     
     return all_exist
 
