@@ -61,8 +61,9 @@ except ImportError:
 
 from board import create_literaki_board, BOARD_SIZE, MID_INDEX
 from tiles import TILE_DEFINITIONS
-from game_gui import LiterakiGUI # Assuming this class handles its own drawing updates
+from game_gui import LiterakiGUI  # Assuming this class handles its own drawing updates
 from dictionary_handler import load_dictionary, is_valid_word
+from ocr_utils import CHAR_MAPPING, preprocess_image
 
 import itertools
 
@@ -489,31 +490,8 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
 
         logging.info(f"OCR Debug: Board region (relative to cropped image: {bx},{by},{bw},{bh}), tile size ({tile_w:.1f},{tile_h:.1f})")
         
-        # Save original board image for debugging
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        debug_dir = "ocr_debug"
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
-        
-        cv2.imwrite(f"{debug_dir}/board_original_{timestamp}.png", board_img)
-        
-        # Image preprocessing for better OCR
-        # Convert to grayscale
-        gray_board = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
-        
-        # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced_board = clahe.apply(gray_board)
-        
-        # Apply Gaussian blur to reduce noise
-        blurred_board = cv2.GaussianBlur(enhanced_board, (3, 3), 0)
-        
-        # Apply sharpening kernel
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        sharpened_board = cv2.filter2D(blurred_board, -1, kernel)
-        
-        # Save preprocessed image for debugging
-        cv2.imwrite(f"{debug_dir}/board_preprocessed_{timestamp}.png", sharpened_board)
+        # Preprocess image and save debug versions
+        sharpened_board = preprocess_image(board_img, "board")
         
         # Run OCR on both original and preprocessed images
         logging.info("OCR Debug: Running EasyOCR on original image...")
@@ -539,17 +517,6 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
         accepted_letters = 0
         rejected_letters = 0
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
-        
         for (bbox, text, prob) in board_results:
             txt = text.strip().upper()
             
@@ -562,8 +529,8 @@ def ocr_board(tile_w, tile_h, board_rect, board_img_bgr):
                 continue
                 
             # Handle Polish character variations and common OCR mistakes
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     y_coords = [pt[1] for pt in bbox]
@@ -604,21 +571,8 @@ def ocr_rack(rack_img_bgr: np.ndarray) -> list:
             logging.warning("Rack image for OCR is empty.")
             return []
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        debug_dir = "ocr_debug"
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
-
-        cv2.imwrite(f"{debug_dir}/rack_original_{timestamp}.png", rack_img_bgr)
-
-        # Preprocess rack image
-        gray_rack = cv2.cvtColor(rack_img_bgr, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced_rack = clahe.apply(gray_rack)
-        blurred_rack = cv2.GaussianBlur(enhanced_rack, (3, 3), 0)
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        sharpened_rack = cv2.filter2D(blurred_rack, -1, kernel)
-        cv2.imwrite(f"{debug_dir}/rack_preprocessed_{timestamp}.png", sharpened_rack)
+        # Preprocess rack image and save debug versions
+        sharpened_rack = preprocess_image(rack_img_bgr, "rack")
         
         rack_results = ocr_reader.readtext(sharpened_rack, batch_size=8, workers=0 if OCR_GPU else 2)
         
@@ -626,23 +580,14 @@ def ocr_rack(rack_img_bgr: np.ndarray) -> list:
         for i, (bbox, text, prob) in enumerate(rack_results):
             logging.info(f"  [{i}] Text: '{text}' | Confidence: {prob:.3f}")
         
-        char_mapping = {
-            'A': 'A', 'Ą': 'Ą', 'B': 'B', 'C': 'C', 'Ć': 'Ć', 'D': 'D',
-            'E': 'E', 'Ę': 'Ę', 'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I',
-            'J': 'J', 'K': 'K', 'L': 'L', 'Ł': 'Ł', 'M': 'M', 'N': 'N',
-            'Ń': 'Ń', 'O': 'O', 'Ó': 'Ó', 'P': 'P', 'R': 'R', 'S': 'S',
-            'Ś': 'Ś', 'T': 'T', 'U': 'U', 'W': 'W', 'Y': 'Y', 'Z': 'Z',
-            'Ź': 'Ź', 'Ż': 'Ż', '_': '_',
-            # Common OCR mistakes
-            '0': 'O', '1': 'I', '6': 'G', '8': 'B'
-        }
 
         rack_candidates = []
         for (bbox, text, prob) in rack_results:
-            if prob < OCR_CONFIDENCE_THRESHOLD: continue
+            if prob < OCR_CONFIDENCE_THRESHOLD:
+                continue
             txt = text.strip().upper()
-            if len(txt) == 1 and txt in char_mapping:
-                mapped_char = char_mapping[txt]
+            if len(txt) == 1 and txt in CHAR_MAPPING:
+                mapped_char = CHAR_MAPPING[txt]
                 if mapped_char in TILE_DEFINITIONS:
                     x_coords = [pt[0] for pt in bbox]
                     cx = sum(x_coords) / 4.0
