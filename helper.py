@@ -278,35 +278,38 @@ if not initialize_components():
 # STEP A: LAUNCH CHROME VIA SELENIUM & NAVIGATE TO LITERAKI
 # ------------------------------------------------------------------------------
 
-def launch_browser_and_navigate():
-    global driver # Ensure driver is global
-    # ... (launch_browser_and_navigate logic from original, assumed correct) ...
-    # Simplified for brevity
-    chrome_options = Options()
-    chrome_options.add_argument("--start-maximized")
-    # Add other options as in original script
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
-
-
-    logging.info(f"• Launching Chrome and navigating to {LITERAKI_URL} ...")
-    driver_service = None
+def create_driver_service():
+    """Try webdriver-manager first, then a manual path."""
+    # AFTER: simplified guard clauses instead of nested if/else
     if WEBDRIVER_MANAGER_AVAILABLE:
         try:
             logging.info("  -> Attempting to use webdriver-manager...")
-            driver_service = ChromeService(ChromeDriverManager().install())
-            logging.info("  -> ChromeDriver automatically managed.")
+            return ChromeService(ChromeDriverManager().install())
         except Exception as e:
-            logging.warning(f"  -> webdriver-manager failed: {e}. Falling back to manual path if specified.")
-    
-    if driver_service is None and CHROMEDRIVER_PATH:
+            logging.warning(f"  -> webdriver-manager failed: {e}")
+
+    if CHROMEDRIVER_PATH:
         try:
-            driver_service = ChromeService(executable_path=CHROMEDRIVER_PATH)
             logging.info(f"  -> Using manual ChromeDriver path: {CHROMEDRIVER_PATH}")
+            return ChromeService(executable_path=CHROMEDRIVER_PATH)
         except Exception as e:
             logging.error(f"  -> Manual ChromeDriver setup failed: {e}")
             return None
-    elif driver_service is None:
-        logging.error("  -> No ChromeDriver path specified and webdriver-manager failed or not available.")
+
+    logging.error("  -> No ChromeDriver path specified and webdriver-manager failed or not available.")
+    return None
+
+
+def launch_browser_and_navigate():
+    global driver  # Ensure driver is global
+    # BEFORE: nested conditions handled ChromeDriver selection here
+    chrome_options = Options()
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+    logging.info(f"• Launching Chrome and navigating to {LITERAKI_URL} ...")
+    driver_service = create_driver_service()
+    if not driver_service:
         return None
 
     try:
