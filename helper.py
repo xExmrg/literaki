@@ -37,6 +37,8 @@ from collections import deque
 from datetime import datetime
 import psutil
 
+from utils import ensure_dir, timestamp
+
 import cv2
 from enum import Enum # For GameStateEnum
 import numpy as np
@@ -89,8 +91,7 @@ REFRESH_INTERVAL = float(os.environ.get("REFRESH_INTERVAL", "1.0"))
 
 # Directory to store debugging screenshots
 SCREENSHOT_DIR = os.environ.get("SCREENSHOT_DIR", "screenshots")
-if not os.path.exists(SCREENSHOT_DIR):
-    os.makedirs(SCREENSHOT_DIR)
+ensure_dir(SCREENSHOT_DIR)
 
 # 4) Minimum contour area (in pixels) for red square detection.
 #    This helps ignore tiny red specks; adjust if needed.
@@ -718,17 +719,17 @@ def main_loop():
             full_bgr_image = cv2.cvtColor(np.array(full_screenshot_pil), cv2.COLOR_RGB2BGR)
 
             # --- New cropping and saving logic for fixed regions ---
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp_value = timestamp()
             
             # Crop and save board image
             board_cropped_pil = full_screenshot_pil.crop(BOARD_CROP_COORDS)
-            board_cropped_filename = os.path.join(SCREENSHOT_DIR, f"board_cropped_{timestamp}.png")
+            board_cropped_filename = os.path.join(SCREENSHOT_DIR, f"board_cropped_{timestamp_value}.png")
             board_cropped_pil.save(board_cropped_filename)
             logging.info(f"Saved cropped board image: {board_cropped_filename}")
 
             # Crop and save rack image
             rack_cropped_pil = full_screenshot_pil.crop(RACK_CROP_COORDS)
-            rack_cropped_filename = os.path.join(SCREENSHOT_DIR, f"rack_cropped_{timestamp}.png")
+            rack_cropped_filename = os.path.join(SCREENSHOT_DIR, f"rack_cropped_{timestamp_value}.png")
             rack_cropped_pil.save(rack_cropped_filename)
             logging.info(f"Saved cropped rack image: {rack_cropped_filename}")
             # --- End new cropping and saving logic ---
