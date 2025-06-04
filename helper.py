@@ -77,16 +77,18 @@ RACK_CROP_COORDS = (1184, 286, 1491, 328)
 
 # 1) ChromeDriver configuration - now uses webdriver-manager for automatic management
 # Fallback to manual path if webdriver-manager is not available
-CHROMEDRIVER_PATH = "chromedriver"  # Fallback path if webdriver-manager fails or is not installed
+# Allow overriding ChromeDriver path via environment variable
+CHROMEDRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "chromedriver")
 
 # 2) The URL to open. The script will wait until a live board appears.
-LITERAKI_URL = "https://www.kurnik.pl/literaki/"
+# Target URL for the game; can be overridden for testing
+LITERAKI_URL = os.environ.get("LITERAKI_URL", "https://www.kurnik.pl/literaki/")
 
 # 3) How frequently (in seconds) to update OCR + best move search once the board is detected.
-REFRESH_INTERVAL = 1.0
+REFRESH_INTERVAL = float(os.environ.get("REFRESH_INTERVAL", "1.0"))
 
 # Directory to store debugging screenshots
-SCREENSHOT_DIR = "screenshots"
+SCREENSHOT_DIR = os.environ.get("SCREENSHOT_DIR", "screenshots")
 if not os.path.exists(SCREENSHOT_DIR):
     os.makedirs(SCREENSHOT_DIR)
 
@@ -175,8 +177,8 @@ driver = None
 ocr_reader = None
 gui = None
 board_properties = None
-# Configuration for EasyOCR GPU usage (can be set in helper.py)
-OCR_GPU = True  # Set to False for CPU-only
+# Configuration for EasyOCR GPU usage (can be overridden via env)
+OCR_GPU = os.environ.get("OCR_GPU", "True").lower() in ("1", "true", "yes")
 
 def validate_dependencies():
     """Validate that all required dependencies are available."""

@@ -174,6 +174,16 @@ INITIAL_WAIT_TIME = 5.0
 OCR_GPU = True  # Set to False for CPU-only
 ```
 
+Many of these values can also be overridden with environment variables:
+
+```
+CHROMEDRIVER_PATH  # Custom path to chromedriver binary
+LITERAKI_URL       # Alternate game URL for testing
+REFRESH_INTERVAL   # Update frequency in seconds
+SCREENSHOT_DIR     # Directory to store screenshots
+OCR_GPU            # "true" or "false" to enable GPU mode
+```
+
 ## System Requirements
 
 ### Minimum Requirements
