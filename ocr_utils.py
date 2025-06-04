@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import cv2
 import numpy as np
+import config
 
 # Mapping of OCR characters to valid Literaki letters including common mistakes
 CHAR_MAPPING = {
@@ -16,8 +17,11 @@ CHAR_MAPPING = {
 }
 
 
-def preprocess_image(image_bgr, prefix, debug_dir="ocr_debug"):
+def preprocess_image(image_bgr, prefix, debug_dir=None):
     """Apply common preprocessing steps to improve OCR accuracy."""
+    if debug_dir is None:
+        debug_dir = config.OCR_DEBUG_DIR
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if not os.path.exists(debug_dir):
         os.makedirs(debug_dir)

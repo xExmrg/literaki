@@ -64,6 +64,7 @@ from tiles import TILE_DEFINITIONS
 from game_gui import LiterakiGUI  # Assuming this class handles its own drawing updates
 from dictionary_handler import load_dictionary, is_valid_word
 from ocr_utils import CHAR_MAPPING, preprocess_image
+import config
 
 import itertools
 
@@ -72,36 +73,36 @@ import itertools
 # ------------------------------------------------------------------------------
 
 # Coordinates for fixed-region cropping (left, top, right, bottom)
-BOARD_CROP_COORDS = (528, 146, 1080, 702)
-RACK_CROP_COORDS = (1184, 286, 1491, 328)
+BOARD_CROP_COORDS = config.BOARD_CROP_COORDS
+RACK_CROP_COORDS = config.RACK_CROP_COORDS
 
 # 1) ChromeDriver configuration - now uses webdriver-manager for automatic management
 # Fallback to manual path if webdriver-manager is not available
 # Allow overriding ChromeDriver path via environment variable
-CHROMEDRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "chromedriver")
+CHROMEDRIVER_PATH = config.CHROMEDRIVER_PATH
 
 # 2) The URL to open. The script will wait until a live board appears.
 # Target URL for the game; can be overridden for testing
-LITERAKI_URL = os.environ.get("LITERAKI_URL", "https://www.kurnik.pl/literaki/")
+LITERAKI_URL = config.LITERAKI_URL
 
 # 3) How frequently (in seconds) to update OCR + best move search once the board is detected.
-REFRESH_INTERVAL = float(os.environ.get("REFRESH_INTERVAL", "1.0"))
+REFRESH_INTERVAL = config.REFRESH_INTERVAL
 
 # Directory to store debugging screenshots
-SCREENSHOT_DIR = os.environ.get("SCREENSHOT_DIR", "screenshots")
+SCREENSHOT_DIR = config.SCREENSHOT_DIR
 if not os.path.exists(SCREENSHOT_DIR):
     os.makedirs(SCREENSHOT_DIR)
 
 # 4) Minimum contour area (in pixels) for red square detection.
 #    This helps ignore tiny red specks; adjust if needed.
-MIN_RED_CONTOUR_AREA = 100 # Adjusted from 100 in original, can be tuned.
+MIN_RED_CONTOUR_AREA = config.MIN_RED_CONTOUR_AREA
 
 # 5) How long to wait (seconds) after launching Chrome before starting detection.
 #    (Gives the page time to load and you time to click "Join game".)
-INITIAL_WAIT_TIME = 5.0
+INITIAL_WAIT_TIME = config.INITIAL_WAIT_TIME
 
 # 6) OCR confidence threshold
-OCR_CONFIDENCE_THRESHOLD = 0.3 # Lowered from 0.5 to catch more potential letters
+OCR_CONFIDENCE_THRESHOLD = config.OCR_CONFIDENCE_THRESHOLD
 
 # 7) Debug logging configuration
 logging.basicConfig(
@@ -178,7 +179,7 @@ ocr_reader = None
 gui = None
 board_properties = None
 # Configuration for EasyOCR GPU usage (can be overridden via env)
-OCR_GPU = os.environ.get("OCR_GPU", "True").lower() in ("1", "true", "yes")
+OCR_GPU = config.OCR_GPU
 
 def validate_dependencies():
     """Validate that all required dependencies are available."""
@@ -208,14 +209,14 @@ def initialize_components():
                 logging.error(f"  -> EasyOCR initialization failed completely: {e_cpu}")
                 return False
 
-        logging.info("• Loading dictionary (dictionary.txt)...")
-        if not os.path.exists("dictionary.txt"):
-            logging.warning("  -> Warning: dictionary.txt not found. Creating minimal dictionary.")
-            with open("dictionary.txt", "w", encoding="utf-8") as f:
+        logging.info(f"• Loading dictionary ({config.DICTIONARY_PATH})...")
+        if not os.path.exists(config.DICTIONARY_PATH):
+            logging.warning("  -> Warning: dictionary file not found. Creating minimal dictionary.")
+            with open(config.DICTIONARY_PATH, "w", encoding="utf-8") as f:
                 f.write("test\nslowo\nkot\npies\ndom\nwoda\n")
 
         try:
-            load_dictionary("dictionary.txt")
+            load_dictionary(config.DICTIONARY_PATH)
             dict_words_global = sys.modules['dictionary_handler'].DICTIONARY_WORDS
             logging.info(f"  -> Dictionary loaded: {len(dict_words_global)} words.")
         except Exception as e:
@@ -691,7 +692,7 @@ def main_loop():
     last_ocr_time = 0
     board_rect_stable = None
     tile_w_stable, tile_h_stable = None, None
-    MIN_BOARD_CONFIDENCE = 75
+    MIN_BOARD_CONFIDENCE = config.MIN_BOARD_CONFIDENCE
 
     if gui:
         gui.draw_board()
