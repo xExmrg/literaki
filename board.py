@@ -1,7 +1,7 @@
 import functools
 import time
-from collections import namedtuple
-from typing import Dict, Any
+from dataclasses import dataclass
+from typing import Dict, Any, Optional
 
 # Performance tracking
 _perf_stats: Dict[str, Any] = {
@@ -23,9 +23,14 @@ BC_YELLOW = "yellow"
 BC_BLUE = "blue"
 COLOR_INITIAL = {BC_ORANGE: "O", BC_GREEN: "G", BC_YELLOW: "Y", BC_BLUE: "B"}
 
-# Define a lightweight square data structure
-Square = namedtuple('Square', ['word_mult', 'board_color', 'is_start'])
-DEFAULT_SQUARE = Square(word_mult=1, board_color=None, is_start=False)
+# Define a lightweight square data structure using dataclass for speed/memory
+@dataclass(slots=True, frozen=True)
+class Square:
+    word_mult: int = 1
+    board_color: Optional[str] = None
+    is_start: bool = False
+
+DEFAULT_SQUARE = Square()
 
 # Predefined board layout - tuples are more memory efficient than lists
 BOARD_LAYOUT = (
