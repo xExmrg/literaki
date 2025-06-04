@@ -1,6 +1,7 @@
 # tiles.py
 import random
-from board import BC_BLUE, BC_YELLOW, BC_GREEN, BC_ORANGE # Import board color constants
+from typing import Any, Dict, List, Optional, Union
+from board import BC_BLUE, BC_YELLOW, BC_GREEN, BC_ORANGE  # Import board color constants
 
 # Tile color categories based on point values as per game_rules.txt
 # 1 point: Blue
@@ -49,9 +50,9 @@ TILE_DEFINITIONS = {
     '_': {'points': 0, 'count': 2, 'color': None}  # Blank tile, represented by '_'
 }
 
-def create_tile_bag():
+def create_tile_bag() -> List[Dict[str, Any]]:
     """Creates the full bag of Literaki tiles based on TILE_DEFINITIONS."""
-    tile_bag = [
+    tile_bag: List[Dict[str, Any]] = [
         {
             'letter': letter,
             'points': details['points'],
@@ -63,7 +64,7 @@ def create_tile_bag():
     random.shuffle(tile_bag)
     return tile_bag
 
-def draw_tiles_from_bag(tile_bag, num_tiles):
+def draw_tiles_from_bag(tile_bag: List[Dict[str, Any]], num_tiles: int) -> List[Dict[str, Any]]:
     """Draws a specified number of tiles from the bag."""
     if not tile_bag:
         return []
@@ -76,35 +77,35 @@ class PlayerRack:
     """Represents a player's rack of tiles."""
     __slots__ = ('rack_size', 'tile_bag', 'tiles')
 
-    def __init__(self, tile_bag, rack_size=7):
+    def __init__(self, tile_bag: Optional[List[Dict[str, Any]]], rack_size: int = 7) -> None:
         self.rack_size = rack_size
         self.tile_bag = tile_bag  # Reference to the game's tile bag
-        self.tiles = []
+        self.tiles: List[Dict[str, Any]] = []
         if self.tile_bag is not None:
             self.replenish_tiles()
 
-    def replenish_tiles(self):
+    def replenish_tiles(self) -> None:
         """Fills the rack up to its maximum size from the tile bag."""
         needed = self.rack_size - len(self.tiles)
         if needed > 0:
             self.tiles.extend(draw_tiles_from_bag(self.tile_bag, needed))
 
-    def get_tiles(self):
+    def get_tiles(self) -> List[Dict[str, Any]]:
         """Returns the current tiles on the rack."""
         return self.tiles
 
-    def get_rack_str(self):
+    def get_rack_str(self) -> str:
         """Returns a string representation of the rack."""
         return ", ".join(tile['letter'] for tile in self.tiles)
 
 
-    def remove_tile(self, letter_char_or_tile_obj):
+    def remove_tile(self, letter_char_or_tile_obj: Union[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
         Removes a specific letter tile from the rack.
         Can accept either the letter character (str) or the tile object itself.
         If removing a blank tile, it's best to pass the tile object used for the move.
         """
-        tile_to_remove = None
+        tile_to_remove: Optional[Dict[str, Any]] = None
         if isinstance(letter_char_or_tile_obj, str):
             letter_char = letter_char_or_tile_obj
             # If it's a blank being represented by its chosen letter,
@@ -126,9 +127,9 @@ class PlayerRack:
                 # For now, we assume the tile object passed is from the rack.
                 pass # Tile not found by object, would have been caught by char search
 
-        return tile_to_remove # Tile not found or already removed
+        return tile_to_remove  # Tile not found or already removed
 
-    def add_tile(self, tile):
+    def add_tile(self, tile: Dict[str, Any]) -> None:
         """Adds a tile to the rack (e.g., if exchanging or move undone)."""
         if len(self.tiles) < self.rack_size:
             self.tiles.append(tile)

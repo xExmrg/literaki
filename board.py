@@ -1,7 +1,7 @@
 import functools
 import time
 from collections import namedtuple
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Performance tracking
 _perf_stats: Dict[str, Any] = {
@@ -25,6 +25,9 @@ COLOR_INITIAL = {BC_ORANGE: "O", BC_GREEN: "G", BC_YELLOW: "Y", BC_BLUE: "B"}
 
 # Define a lightweight square data structure
 Square = namedtuple('Square', ['word_mult', 'board_color', 'is_start'])
+
+# Alias representing the board structure
+Board = List[List[Square]]
 DEFAULT_SQUARE = Square(word_mult=1, board_color=None, is_start=False)
 
 # Predefined board layout - tuples are more memory efficient than lists
@@ -89,7 +92,7 @@ BOARD_LAYOUT = (
 )
 
 @functools.lru_cache(maxsize=None)
-def create_literaki_board():
+def create_literaki_board() -> Board:
     """Create the Literaki board with memoization and performance tracking."""
     start_time = time.perf_counter() if DEBUG_MODE else 0
     
@@ -117,7 +120,7 @@ def create_literaki_board():
     R W 3x W W G W R W G W W 3x W R
     """
     # Initialize board with default squares
-    board = [[DEFAULT_SQUARE for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+    board: Board = [[DEFAULT_SQUARE for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
     
     # Apply the layout to the board
     for row_data in BOARD_LAYOUT:
@@ -140,7 +143,7 @@ def create_literaki_board():
     
     return board
 
-def print_literaki_board(board):
+def print_literaki_board(board: Board) -> None:
     """Prints a representation of the Literaki board bonuses."""
     print("Literaki Board Layout:")
     for r in range(BOARD_SIZE):
