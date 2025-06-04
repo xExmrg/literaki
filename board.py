@@ -21,6 +21,7 @@ BC_ORANGE = "orange"
 BC_GREEN = "green"
 BC_YELLOW = "yellow"
 BC_BLUE = "blue"
+COLOR_INITIAL = {BC_ORANGE: "O", BC_GREEN: "G", BC_YELLOW: "Y", BC_BLUE: "B"}
 
 # Define a lightweight square data structure
 Square = namedtuple('Square', ['word_mult', 'board_color', 'is_start'])
@@ -121,15 +122,14 @@ def create_literaki_board():
     # Apply the layout to the board
     for row_data in BOARD_LAYOUT:
         for square_data in row_data:
-            if len(square_data) == 3:  # (row, col, color)
-                row, col, color = square_data
-                board[row][col] = Square(word_mult=1, board_color=color, is_start=False)
-            elif len(square_data) == 4:  # (row, col, color, word_mult)
-                row, col, color, word_mult = square_data
-                board[row][col] = Square(word_mult=word_mult, board_color=color, is_start=False)
-            elif len(square_data) == 5:  # (row, col, color, word_mult, is_start)
-                row, col, color, word_mult, is_start = square_data
-                board[row][col] = Square(word_mult=word_mult, board_color=color, is_start=is_start)
+            row, col, color, *extras = square_data
+            word_mult = 1
+            is_start = False
+            if extras:
+                word_mult = extras[0]
+                if len(extras) > 1:
+                    is_start = extras[1]
+            board[row][col] = Square(word_mult=word_mult, board_color=color, is_start=is_start)
 
     # Update performance stats if in debug mode
     if DEBUG_MODE:
@@ -157,10 +157,11 @@ def print_literaki_board(board):
                 label += "2W"
             
             if square.board_color:
-                if label and (square.word_mult > 1):  # if already 3W or 2W
-                    label += f"({square.board_color[0].upper()})"  # e.g. 3W(O)
+                color_initial = COLOR_INITIAL[square.board_color]
+                if label and (square.word_mult > 1):
+                    label += f"({color_initial})"
                 else:
-                    label += f"L{square.board_color[0].upper()}"  # e.g. LO for Letter Orange
+                    label += f"L{color_initial}"
 
             if not label:
                 label = "---"
