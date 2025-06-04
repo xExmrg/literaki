@@ -216,8 +216,9 @@ def initialize_components():
 
         try:
             load_dictionary("dictionary.txt")
-            dict_words_global = sys.modules['dictionary_handler'].DICTIONARY_WORDS
-            logging.info(f"  -> Dictionary loaded: {len(dict_words_global)} words.")
+            from dictionary_handler import iter_dictionary_words
+            dict_size = sum(1 for _ in iter_dictionary_words())
+            logging.info(f"  -> Dictionary loaded: {dict_size} words.")
         except Exception as e:
             logging.error(f"  -> Dictionary loading failed: {e}")
             return False
