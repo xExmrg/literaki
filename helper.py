@@ -33,6 +33,7 @@ import threading # Not actively used in provided snippet, but kept if original h
 import traceback
 import atexit
 import logging
+from collections import deque
 from datetime import datetime
 import psutil
 
@@ -111,18 +112,22 @@ logging.basicConfig(
 
 # 8) Performance tracking & Game State
 class PerformanceMetrics:
-    def __init__(self):
-        self.detection_times = []
-        self.memory_usage = []
+    """Track performance with bounded history to limit memory usage."""
+
+    def __init__(self, history_size: int = 100):
+        # Use deques with a max length so memory doesn't grow unbounded
+        self.detection_times = deque(maxlen=history_size)
+        self.memory_usage = deque(maxlen=history_size)
+        self.state_transitions = deque(maxlen=history_size)
         self.error_count = 0
-        self.state_transitions = []
         self.start_time = time.time()
 
     def record_detection_time(self, duration):
         self.detection_times.append(duration)
 
     def record_memory_usage(self):
-        self.memory_usage.append(psutil.Process().memory_info().rss / 1024 / 1024)  # MB
+        # Record current memory usage in MB; deque keeps only recent values
+        self.memory_usage.append(psutil.Process().memory_info().rss / 1024 / 1024)
 
     def record_error(self):
         self.error_count += 1
@@ -143,7 +148,7 @@ class PerformanceMetrics:
             'avg_detection_time': sum(self.detection_times)/len(self.detection_times) if self.detection_times else 0,
             'avg_memory': sum(self.memory_usage)/len(self.memory_usage) if self.memory_usage else 0,
             'error_count': self.error_count,
-            'state_transitions': self.state_transitions
+            'state_transitions': list(self.state_transitions)
         }
 
 metrics = PerformanceMetrics()
