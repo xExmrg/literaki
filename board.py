@@ -156,24 +156,23 @@ def print_literaki_board(board):
         row_str = []
         for c in range(BOARD_SIZE):
             square = board[r][c]
-            label = ""
+            label_parts = []
             if square.is_start:
-                label += "*"
-            
+                label_parts.append("*")
+
             if square.word_mult == 3:
-                label += "3W"
+                label_parts.append("3W")
             elif square.word_mult == 2:
-                label += "2W"
-            
+                label_parts.append("2W")
+
             if square.board_color:
                 color_initial = COLOR_INITIAL[square.board_color]
-                if label and (square.word_mult > 1):
-                    label += f"({color_initial})"
+                if label_parts and (square.word_mult > 1):
+                    label_parts.append(f"({color_initial})")
                 else:
-                    label += f"L{color_initial}"
+                    label_parts.append(f"L{color_initial}")
 
-            if not label:
-                label = "---"
+            label = "".join(label_parts) or "---"
             row_str.append(f"{label:^7}")  # Pad to make columns align
         print(" ".join(row_str))
     print("\nLegend: * = Start, 3W = Triple Word, 2W = Double Word")
