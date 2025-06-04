@@ -43,3 +43,4 @@ jobs:
           commit-title: "Auto-merged ${{ github.ref_name }} into main"
           commit-message: "Automatically merged by GitHub Actions"
           delete-branch: true        # optionally delete the feature branch
+          wait-for-status-checks: true
