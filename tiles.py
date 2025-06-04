@@ -1,4 +1,6 @@
 # tiles.py
+"""Tile definitions and simple helpers for a Literaki game."""
+
 import random
 from board import BC_BLUE, BC_YELLOW, BC_GREEN, BC_ORANGE # Import board color constants
 

@@ -1,3 +1,5 @@
+"""Main automation helper for the Literaki board game."""
+
 # helper.py
 #
 # A fully working Literaki assistant.

@@ -1,3 +1,5 @@
+"""Utilities for creating and inspecting the Literaki board layout."""
+
 import functools
 import time
 from collections import namedtuple
