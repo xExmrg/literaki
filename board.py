@@ -93,88 +93,71 @@ BOARD_LAYOUT = (
      (14, 9, BC_GREEN), (14, 12, None, 3), (14, 14, BC_ORANGE))
 )
 
+def _create_empty_board():
+    """Return a BOARD_SIZE×BOARD_SIZE grid filled with DEFAULT_SQUARE."""
+    return [[DEFAULT_SQUARE for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+
+
+def _apply_layout(board):
+    """Apply BOARD_LAYOUT definitions to the given board grid."""
+    for row_data in BOARD_LAYOUT:
+        for square_data in row_data:
+            row, col, color, *extras = square_data
+            word_mult = extras[0] if extras else 1
+            is_start = len(extras) > 1 and extras[1]
+            board[row][col] = Square(word_mult=word_mult, board_color=color, is_start=is_start)
+
+
 @functools.lru_cache(maxsize=None)
 def create_literaki_board():
     """Create the Literaki board with memoization and performance tracking."""
     start_time = time.perf_counter() if DEBUG_MODE else 0
-    
-    # Original board creation logic
-    """
-    Creates the 15x15 Literaki board with all special squares.
-    Each square is a dictionary:
-    {'word_mult': int, 'board_color': str/None, 'is_start': bool}
-    
-    Layout follows the exact pattern:
-    R W 3x W W G W R W G W W 3x W R
-    W W W W G W R W R W G W W W W
-    3x W W G W 2x W Y W 2x W G W W 3x
-    W W G W 2x W Y W Y W 2x W G W W
-    W G W 2x W Y W W W Y W 2x W G W
-    G W 2x W Y W W B W W Y W 2x W G
-    W R W Y W W B W B W W Y W R W
-    R W Y W W B W R W B W W Y W R
-    W R W Y W W B W B W W Y W R W
-    G W 2x W Y W W B W W Y W 2x W G
-    W G W 2x W Y W W W Y W 2x W G W
-    W W G W 2x W Y W Y W 2x W G W W
-    3x W W G W 2x W Y W 2x W G W W 3x
-    W W W W G W R W R W G W W W W
-    R W 3x W W G W R W G W W 3x W R
-    """
-    # Initialize board with default squares
-    board = [[DEFAULT_SQUARE for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
-    
-    # Apply the layout to the board
-    for row_data in BOARD_LAYOUT:
-        for square_data in row_data:
-            row, col, color, *extras = square_data
-            word_mult = 1
-            is_start = False
-            if extras:
-                word_mult = extras[0]
-                if len(extras) > 1:
-                    is_start = extras[1]
-            board[row][col] = Square(word_mult=word_mult, board_color=color, is_start=is_start)
 
-    # Update performance stats if in debug mode
+    board = _create_empty_board()
+    _apply_layout(board)
+
     if DEBUG_MODE:
         elapsed = time.perf_counter() - start_time
         _perf_stats['create_calls'] += 1
         _perf_stats['create_time'] += elapsed
         _perf_stats['last_create_time'] = elapsed
-    
+
     return board
 
-def print_literaki_board(board):
-    """Prints a representation of the Literaki board bonuses."""
+def _validate_board(board):
     if board is None:
         raise ValueError("board cannot be None")
     if len(board) < BOARD_SIZE or any(len(row) < BOARD_SIZE for row in board):
         raise ValueError("board must be a 15x15 grid")
+
+
+def _square_label(square: Square) -> str:
+    label_parts = []
+    if square.is_start:
+        label_parts.append("*")
+    if square.word_mult == 3:
+        label_parts.append("3W")
+    elif square.word_mult == 2:
+        label_parts.append("2W")
+
+    if square.board_color:
+        color_initial = COLOR_INITIAL[square.board_color]
+        if label_parts and square.word_mult > 1:
+            label_parts[-1] = f"{label_parts[-1]}({color_initial})"
+        else:
+            label_parts.append(f"L{color_initial}")
+
+    label = "".join(label_parts) or "---"
+    return f"{label:^7}"
+
+
+def print_literaki_board(board):
+    """Print a representation of the Literaki board bonuses."""
+    _validate_board(board)
+
     print("Literaki Board Layout:")
     for r in range(BOARD_SIZE):
-        row_str = []
-        for c in range(BOARD_SIZE):
-            square = board[r][c]
-            label = ""
-            if square.is_start:
-                label += "*"
-            
-            if square.word_mult == 3:
-                label += "3W"
-            elif square.word_mult == 2:
-                label += "2W"
-            
-            if square.board_color:
-                color_initial = COLOR_INITIAL[square.board_color]
-                if label and (square.word_mult > 1):
-                    label += f"({color_initial})"
-                else:
-                    label += f"L{color_initial}"
-
-            if not label:
-                label = "---"
-            row_str.append(f"{label:^7}")  # Pad to make columns align
+        row_str = [_square_label(board[r][c]) for c in range(BOARD_SIZE)]
         print(" ".join(row_str))
     print("\nLegend: * = Start, 3W = Triple Word, 2W = Double Word")
     print("L(ColorInitial) = Letter Bonus for matching Color (e.g., LO = Orange square for letter bonus)")
