@@ -51,32 +51,34 @@ TILE_DEFINITIONS = {
 
 def create_tile_bag():
     """Creates the full bag of Literaki tiles based on TILE_DEFINITIONS."""
-    tile_bag = []
-    for letter, details in TILE_DEFINITIONS.items():
-        for _ in range(details['count']):
-            tile_bag.append({
-                'letter': letter,
-                'points': details['points'],
-                'color': details['color']
-            })
+    tile_bag = [
+        {
+            'letter': letter,
+            'points': details['points'],
+            'color': details['color'],
+        }
+        for letter, details in TILE_DEFINITIONS.items()
+        for _ in range(details['count'])
+    ]
     random.shuffle(tile_bag)
     return tile_bag
 
 def draw_tiles_from_bag(tile_bag, num_tiles):
     """Draws a specified number of tiles from the bag."""
-    drawn_tiles = []
-    for _ in range(num_tiles):
-        if tile_bag:
-            drawn_tiles.append(tile_bag.pop())
-        else:
-            break  # No more tiles in the bag
+    if not tile_bag:
+        return []
+    to_draw = min(num_tiles, len(tile_bag))
+    drawn_tiles = tile_bag[-to_draw:]
+    del tile_bag[-to_draw:]
     return drawn_tiles
 
 class PlayerRack:
     """Represents a player's rack of tiles."""
+    __slots__ = ('rack_size', 'tile_bag', 'tiles')
+
     def __init__(self, tile_bag, rack_size=7):
         self.rack_size = rack_size
-        self.tile_bag = tile_bag # Reference to the game's tile bag
+        self.tile_bag = tile_bag  # Reference to the game's tile bag
         self.tiles = []
         if self.tile_bag is not None:
             self.replenish_tiles()
@@ -93,7 +95,7 @@ class PlayerRack:
 
     def get_rack_str(self):
         """Returns a string representation of the rack."""
-        return ", ".join([tile['letter'] for tile in self.tiles])
+        return ", ".join(tile['letter'] for tile in self.tiles)
 
 
     def remove_tile(self, letter_char_or_tile_obj):
