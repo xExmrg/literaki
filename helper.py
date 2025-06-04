@@ -83,6 +83,11 @@ LITERAKI_URL = "https://www.kurnik.pl/literaki/"
 # 3) How frequently (in seconds) to update OCR + best move search once the board is detected.
 REFRESH_INTERVAL = 1.0
 
+# Directory to store debugging screenshots
+SCREENSHOT_DIR = "screenshots"
+if not os.path.exists(SCREENSHOT_DIR):
+    os.makedirs(SCREENSHOT_DIR)
+
 # 4) Minimum contour area (in pixels) for red square detection.
 #    This helps ignore tiny red specks; adjust if needed.
 MIN_RED_CONTOUR_AREA = 100 # Adjusted from 100 in original, can be tuned.
@@ -648,9 +653,6 @@ def ocr_rack(rack_img_bgr: np.ndarray) -> list:
         logging.error(f"Error in OCR rack processing: {e}", exc_info=True)
         return []
 
-    except Exception as e:
-        logging.error(f"Error in OCR processing: {e}", exc_info=True)
-        return [["" for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)], []
 
 
 # ------------------------------------------------------------------------------
@@ -727,7 +729,6 @@ def best_move_search(board_letters, rack_letters):
 # ------------------------------------------------------------------------------
 # STEP F: MAIN LOOP
 # ------------------------------------------------------------------------------
-from enum import Enum # For GameStateEnum
 
 def main_loop():
     global current_game_state, driver, gui, metrics
@@ -766,13 +767,13 @@ def main_loop():
             
             # Crop and save board image
             board_cropped_pil = full_screenshot_pil.crop(BOARD_CROP_COORDS)
-            board_cropped_filename = os.path.join(screenshot_dir, f"board_cropped_{timestamp}.png")
+            board_cropped_filename = os.path.join(SCREENSHOT_DIR, f"board_cropped_{timestamp}.png")
             board_cropped_pil.save(board_cropped_filename)
             logging.info(f"Saved cropped board image: {board_cropped_filename}")
 
             # Crop and save rack image
             rack_cropped_pil = full_screenshot_pil.crop(RACK_CROP_COORDS)
-            rack_cropped_filename = os.path.join(screenshot_dir, f"rack_cropped_{timestamp}.png")
+            rack_cropped_filename = os.path.join(SCREENSHOT_DIR, f"rack_cropped_{timestamp}.png")
             rack_cropped_pil.save(rack_cropped_filename)
             logging.info(f"Saved cropped rack image: {rack_cropped_filename}")
             # --- End new cropping and saving logic ---
@@ -823,60 +824,64 @@ def main_loop():
                 metrics.record_memory_usage()
 
                 ocr_start = time.time()
-def ocr_board_and_rack(tile_w, tile_h, board_rect, board_img_bgr):
-    """Returns (board_letters, rack_letters) for compatibility with main loop."""
-    board_letters = ocr_board(tile_w, tile_h, board_rect, board_img_bgr)
-    # The rack_letters are obtained separately in the main loop, so return empty list for compatibility.
-    return board_letters, []
-                # Pass the cropped board and rack images directly to OCR functions
-board_letters, _ = ocr_board_and_rack(
-    tile_w_stable, tile_h_stable, board_rect_stable, board_cropped_bgr
-)
-# OCR the rack separately using the cropped rack image
-rack_letters = ocr_rack(rack_cropped_bgr)
-ocr_end = time.time()
+                board_letters = ocr_board(
+                    tile_w_stable,
+                    tile_h_stable,
+                    board_rect_stable,
+                    board_cropped_bgr,
+                )
+                rack_letters = ocr_rack(rack_cropped_bgr)
+                ocr_end = time.time()
 
-update_gui_from_detection(board_letters, rack_letters)
+                update_gui_from_detection(board_letters, rack_letters)
 
-if gui:
-    gui.draw_board()
+                if gui:
+                    gui.draw_board()
 
-move_start = time.time()
-best_m = best_move_search(board_letters, rack_letters)
-move_end = time.time()
+                move_start = time.time()
+                best_m = best_move_search(board_letters, rack_letters)
+                move_end = time.time()
 
-if gui:
-    if best_m:
-        logging.info(f"Best move: {best_m['word']} @ ({best_m['row']},{best_m['col']}) score {best_m['score']}")
-        for (r_bm, c_bm, ch_bm) in best_m.get('used_positions', []):
-            x_hl = gui.GRID_MARGIN + c_bm * gui.SQUARE_SIZE
-            y_hl = gui.GRID_MARGIN + 40 + r_bm * gui.SQUARE_SIZE
-            s_hl = gui.SQUARE_SIZE
-            sfc = pygame.Surface((s_hl, s_hl), pygame.SRCALPHA)
-            sfc.fill((0, 255, 0, 100))
-            gui.screen.blit(sfc, (x_hl, y_hl))
+                if gui:
+                    if best_m:
+                        logging.info(
+                            f"Best move: {best_m['word']} @ ({best_m['row']},{best_m['col']}) score {best_m['score']}"
+                        )
+                        for (r_bm, c_bm, ch_bm) in best_m.get('used_positions', []):
+                            x_hl = gui.GRID_MARGIN + c_bm * gui.SQUARE_SIZE
+                            y_hl = gui.GRID_MARGIN + 40 + r_bm * gui.SQUARE_SIZE
+                            s_hl = gui.SQUARE_SIZE
+                            sfc = pygame.Surface((s_hl, s_hl), pygame.SRCALPHA)
+                            sfc.fill((0, 255, 0, 100))
+                            gui.screen.blit(sfc, (x_hl, y_hl))
 
-        info_text = f"Best: {best_m['word']} @ ({best_m['row']},{best_m['col']}) {'H' if best_m['horizontal'] else 'V'} = {best_m['score']} pts"
-        text_surf = gui.font_title.render(info_text, True, (50, 50, 50))
-        text_rect = text_surf.get_rect(center=(gui.WINDOW_WIDTH // 2, 20))
-        gui.screen.blit(text_surf, text_rect)
-    else:
-        logging.debug("No best move found in this cycle.")
-        pygame.draw.rect(gui.screen, gui.COLORS['background'], (0,0, gui.WINDOW_WIDTH, gui.GRID_MARGIN + 35))
-        title_text = gui.font_title.render("LITERAKI HELPER - ACTIVE", True, (50,50,50))
-        title_rect = title_text.get_rect(center=(gui.WINDOW_WIDTH // 2, 20))
-        gui.screen.blit(title_text, title_rect)
+                        info_text = (
+                            f"Best: {best_m['word']} @ ({best_m['row']},{best_m['col']})"
+                            f" {'H' if best_m['horizontal'] else 'V'} = {best_m['score']} pts"
+                        )
+                        text_surf = gui.font_title.render(info_text, True, (50, 50, 50))
+                        text_rect = text_surf.get_rect(center=(gui.WINDOW_WIDTH // 2, 20))
+                        gui.screen.blit(text_surf, text_rect)
+                    else:
+                        logging.debug("No best move found in this cycle.")
+                        pygame.draw.rect(
+                            gui.screen,
+                            gui.COLORS['background'],
+                            (0, 0, gui.WINDOW_WIDTH, gui.GRID_MARGIN + 35),
+                        )
+                        title_text = gui.font_title.render("LITERAKI HELPER - ACTIVE", True, (50, 50, 50))
+                        title_rect = title_text.get_rect(center=(gui.WINDOW_WIDTH // 2, 20))
+                        gui.screen.blit(title_text, title_rect)
 
-    pygame.display.flip()
+                    pygame.display.flip()
 
-# Log timing for profiling
-logging.info(
-    f"Timing: screenshot={screenshot_end-screenshot_start:.2f}s, "
-    f"detect_waiting={detect_start-screenshot_end:.2f}s, "
-    f"OCR+update={ocr_end-ocr_start:.2f}s, "
-    f"move_search={move_end-move_start:.2f}s, "
-    f"loop_total={time.time()-loop_start:.2f}s"
-)
+                logging.info(
+                    f"Timing: screenshot={screenshot_end-screenshot_start:.2f}s, "
+                    f"detect_waiting={detect_start-screenshot_end:.2f}s, "
+                    f"OCR+update={ocr_end-ocr_start:.2f}s, "
+                    f"move_search={move_end-move_start:.2f}s, "
+                    f"loop_total={time.time()-loop_start:.2f}s",
+                )
 
 if new_state != current_game_state:
     metrics.record_state_transition(current_game_state, new_state)
@@ -917,15 +922,3 @@ if __name__ == "__main__":
     finally:
         logging.info("Application terminating...")
         # cleanup_resources() will be called by atexit
-import os
-import time
-import pyautogui
-import threading
-
-# Create a directory for screenshots if it doesn't exist
-screenshot_dir = 'screenshots'
-if not os.path.exists(screenshot_dir):
-    os.makedirs(screenshot_dir)
-
-# Screenshot thread removed for performance. If you need periodic screenshots for debugging,
-# re-enable this section or run as a separate script.
