@@ -147,6 +147,10 @@ def create_literaki_board():
 
 def print_literaki_board(board):
     """Prints a representation of the Literaki board bonuses."""
+    if board is None:
+        raise ValueError("board cannot be None")
+    if len(board) < BOARD_SIZE or any(len(row) < BOARD_SIZE for row in board):
+        raise ValueError("board must be a 15x15 grid")
     print("Literaki Board Layout:")
     for r in range(BOARD_SIZE):
         row_str = []
