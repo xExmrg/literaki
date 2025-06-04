@@ -9,7 +9,7 @@ import os
 import traceback
 from typing import List, Tuple
 
-def test_imports() -> Tuple[bool, List[str]]:
+def check_imports() -> Tuple[bool, List[str]]:
     """Test all required imports."""
     print("Testing imports...")
     missing_deps = []
@@ -73,7 +73,7 @@ def test_imports() -> Tuple[bool, List[str]]:
     
     return len(missing_deps) == 0, missing_deps
 
-def test_project_files() -> bool:
+def check_project_files() -> bool:
     """Test that all required project files exist."""
     print("\nTesting project files...")
     required_files = [
@@ -100,7 +100,7 @@ def test_project_files() -> bool:
     
     return all_exist
 
-def test_chromedriver() -> bool:
+def check_chromedriver() -> bool:
     """Test ChromeDriver setup with webdriver-manager."""
     print("\nTesting ChromeDriver setup...")
     
@@ -135,7 +135,7 @@ def test_chromedriver() -> bool:
         print(f"  [FAIL] ChromeDriver setup test failed: {e}")
         return False
 
-def test_easyocr_init() -> bool:
+def check_easyocr_init() -> bool:
     """Test EasyOCR initialization."""
     print("\nTesting EasyOCR initialization...")
     
@@ -161,7 +161,7 @@ def test_easyocr_init() -> bool:
         print(f"  [FAIL] EasyOCR initialization failed: {e}")
         return False
 
-def test_pygame_init() -> bool:
+def check_pygame_init() -> bool:
     """Test Pygame initialization."""
     print("\nTesting Pygame initialization...")
     
@@ -187,7 +187,7 @@ def test_pygame_init() -> bool:
         print(f"  [FAIL] Pygame initialization failed: {e}")
         return False
 
-def test_project_imports() -> bool:
+def check_project_imports() -> bool:
     """Test importing project modules."""
     print("\nTesting project module imports...")
     
@@ -221,38 +221,38 @@ def run_validation_tests():
     all_passed = True
     
     # Test 1: Dependencies
-    imports_ok, missing_deps = test_imports()
+    imports_ok, missing_deps = check_imports()
     if not imports_ok:
         print(f"\n[ERROR] Missing dependencies: {', '.join(missing_deps)}")
         print("Install them with: pip install " + " ".join(missing_deps))
         all_passed = False
     
     # Test 2: Project files
-    if not test_project_files():
+    if not check_project_files():
         print("\n[ERROR] Some required project files are missing")
         all_passed = False
     
     # Test 3: Project imports (only if files exist)
-    if imports_ok and test_project_files():
-        if not test_project_imports():
+    if imports_ok and check_project_files():
+        if not check_project_imports():
             print("\n[ERROR] Project module imports failed")
             all_passed = False
     
     # Test 4: ChromeDriver
     if imports_ok:
-        if not test_chromedriver():
+        if not check_chromedriver():
             print("\n[ERROR] ChromeDriver setup failed")
             all_passed = False
     
     # Test 5: EasyOCR
     if imports_ok:
-        if not test_easyocr_init():
+        if not check_easyocr_init():
             print("\n[ERROR] EasyOCR initialization failed")
             all_passed = False
     
     # Test 6: Pygame
     if imports_ok:
-        if not test_pygame_init():
+        if not check_pygame_init():
             print("\n[ERROR] Pygame initialization failed")
             all_passed = False
     
