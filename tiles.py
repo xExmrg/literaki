@@ -85,6 +85,8 @@ class PlayerRack:
 
     def replenish_tiles(self):
         """Fills the rack up to its maximum size from the tile bag."""
+        if self.tile_bag is None:
+            return
         needed = self.rack_size - len(self.tiles)
         if needed > 0:
             self.tiles.extend(draw_tiles_from_bag(self.tile_bag, needed))
@@ -130,6 +132,8 @@ class PlayerRack:
 
     def add_tile(self, tile):
         """Adds a tile to the rack (e.g., if exchanging or move undone)."""
+        if tile is None:
+            return
         if len(self.tiles) < self.rack_size:
             self.tiles.append(tile)
 
